@@ -1,6 +1,6 @@
 [submodule "external/abieos"]
 	path = external/abieos
-	url = https://github.com/EOSIO/abieos.git
+	url = https://github.com/metamaster2021/abieos.git
 [submodule "external/fc"]
 	path = external/fc
 	url = https://github.com/EOSIO/fc.git
