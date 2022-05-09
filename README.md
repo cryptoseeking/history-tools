@@ -2,6 +2,9 @@
 
 This release contains the first release of EOSIO History-Tools `fill-pg` v1.0.0 and is compatible with EOSIO v2.1.0. All other tools included in the prior alpha releases of History-Tools are now deprecated.
 
+## build docker image
+`docker build -t armoniax/amcsync2pg .`
+
 ## fill-pg
 
 `fill-pg` fills postgresql with data from nodeos's State History Plugin. It provides nearly all
