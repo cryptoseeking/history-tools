@@ -605,9 +605,6 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
         if( backup_ext_bin.remaining() > 0 ){
             eosio::from_bin( bbe, backup_ext_bin );
             if( bbe.previous_backup ){
-                // ilog("id: ${id}",("id", sql_str(bbe.previous_backup->id)));
-                // ilog("producer: ${producer}",("producer", bbe.previous_backup->producer.to_string()));
-                // ilog("contribution: ${ctr}",("ctr", std::to_string(bbe.previous_backup->contribution)));
                 std::vector<std::string> backup_block_info_values{std::to_string(block_num), sql_str(block_id), sql_str(bbe.previous_backup->id),
                 sql_str(bbe.previous_backup->producer), std::to_string(bbe.previous_backup->contribution)};
                 write_stream( block_num, "backup_block_info", backup_block_info_values );
