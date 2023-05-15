@@ -417,11 +417,16 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
                               " where block_num >= " + std::to_string(block)};
             pipeline.insert(query);
         };
+        auto trunc_backup = [&](const std::string& name) {
+            std::string query{"delete from " + converter.schema_name + "." + quote_name(name) +
+                              " where block_num >= " + std::to_string(block-1)};
+            pipeline.insert(query);
+        };
         trunc("received_block");
         trunc("transaction_trace");
         trunc("backup_block_info");
         trunc("block_info");
-        trunc("backup_block");
+        trunc_backup("backup_block");
         for (auto& table : connection->abi.tables) {
             trunc(table.type);
         }
