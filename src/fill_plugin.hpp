@@ -17,4 +17,5 @@ class fill_plugin : public appbase::plugin<fill_plugin> {
     void         plugin_shutdown();
 
     static std::vector<state_history::trx_filter> get_trx_filters(const appbase::variables_map& options);
+    static state_history::table_filter_out get_table_filter(const appbase::variables_map& options);
 };

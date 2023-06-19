@@ -67,6 +67,8 @@ struct pipeline_t {
     bool empty() const { return p.empty(); }
 
     void complete() { p.complete(); }
+
+    void flush() { p.flush(); }
 };
 
 /// a wrapper class for pqxx::tablewriter to log the write_raw_line()
@@ -100,6 +102,7 @@ struct fill_postgresql_config : connection_config {
     uint32_t                skip_to       = 0;
     uint32_t                stop_before   = 0;
     std::vector<trx_filter> trx_filters   = {};
+    table_filter_out        table_filter  = {};
     bool                    drop_schema   = false;
     bool                    create_schema = false;
     bool                    enable_trim   = false;
@@ -151,6 +154,7 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
     std::map<std::string, eosio::abi_type>               abi_types;
     bool                                                 is_write = false;
 
+    std::set<std::string>                                tables;
     fpg_session(fill_postgresql_plugin_impl* my)
         : my(my)
         , config(my->config) {
@@ -211,6 +215,7 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
         work_t t(*sql_connection);
         load_fill_status(t);
         auto       positions = get_positions(t);
+                   tables    = get_tables(t);
         pipeline_t pipeline(t);
         truncate(t, pipeline, head + 1);
         pipeline.complete();
@@ -245,6 +250,7 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
             {"block_num", "transaction_ordinal"}, exec);
 
         for (auto& table : connection->abi.tables) {
+            if ( config->table_filter.filt_out(table.type) ) continue;
             std::vector<std::string> keys = {"block_num", "present"};
             keys.insert(keys.end(), table.key_names.begin(), table.key_names.end());
             converter.create_table(table.type, get_type(table.type), "block_num bigint, present smallint", keys, exec);
@@ -261,6 +267,7 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
         for (auto& table : connection->abi.tables) {
             if (table.key_names.empty())
                 continue;
+            if ( tables.find(table.type) == tables.end() ) continue;
             std::string query = "create index if not exists " + table.type;
             for (auto& k : table.key_names)
                 query += "_" + k;
@@ -333,6 +340,7 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
         };
 
         for (auto& table : connection->abi.tables) {
+            if ( tables.find(table.type) == tables.end() ) continue;
             if (table.key_names.empty()) {
                 query += R"(
                     for key_search in
@@ -395,6 +403,17 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
         return result;
     }
 
+    std::set<std::string>  get_tables(work_t& t) {
+        std::set<std::string> result;
+        std::string schema = config->schema;
+        auto  rows = t.exec(
+            "SELECT table_name FROM information_schema.tables where table_schema = '" + schema +"' order by table_name");
+        for (auto row : rows) {
+            result.emplace(row[0].as<std::string>());
+        }
+        return result;
+    }
+
     void write_fill_status(work_t& t, pipeline_t& pipeline) {
         std::string query =
             "update " + converter.schema_name + ".fill_status set head=" + std::to_string(head) + ", head_id=" + quote(head_id) + ", ";
@@ -417,6 +436,7 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
         trunc("transaction_trace");
         trunc("block_info");
         for (auto& table : connection->abi.tables) {
+            if ( tables.find( table.type ) == tables.end() ) continue;
             trunc(table.type);
         }
 
@@ -596,6 +616,7 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
                     throw std::runtime_error("don't know how to process " + t_delta.name);
 
                 for (auto& row : t_delta.rows) {
+                    if ( tables.find(t_delta.name) == tables.end() ) continue;
                     if (t_delta.rows.size() > 10000 && !(num_processed % 10000))
                         ilog(
                             "block ${b} ${t} ${n} of ${r} bulk=${bulk}",
@@ -708,6 +729,7 @@ void fill_pg_plugin::plugin_initialize(const variables_map& options) {
         my->config->skip_to       = options.count("fill-skip-to") ? options["fill-skip-to"].as<uint32_t>() : 0;
         my->config->stop_before   = options.count("fill-stop") ? options["fill-stop"].as<uint32_t>() : 0;
         my->config->trx_filters   = fill_plugin::get_trx_filters(options);
+        my->config->table_filter  = fill_plugin::get_table_filter(options);
         my->config->drop_schema   = options.count("fpg-drop");
         my->config->create_schema = options.count("fpg-create");
         my->config->enable_trim   = options.count("fill-trim");

@@ -122,4 +122,16 @@ inline bool filter(const std::vector<trx_filter>& filters, const eosio::ship_pro
     return false;
 }
 
+struct table_filter_out {
+    std::set<std::string> filter_out;
+    bool filt_out(std::string name){
+        return filter_out.find(name) != filter_out.end();
+    }
+
+    void add_table_name(std::string name){
+        filter_out.insert(name);
+    }
+
+};
+
 } // namespace state_history
