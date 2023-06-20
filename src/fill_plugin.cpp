@@ -23,7 +23,7 @@ void fill_plugin::set_program_options(options_description& cli, options_descript
     clop("fill-skip-to,k", bpo::value<uint32_t>(), "Skip blocks before [arg]");
     clop("fill-stop,x", bpo::value<uint32_t>(), "Stop before block [arg]");
     clop("fill-trx", bpo::value<std::vector<std::string>>(), "Filter transactions 'include:status:receiver:act_account:act_name'");
-    clop("fill-table", bpo::value<std::string>(), "Filter table out 'table1:table2'");
+    clop("fill-table", bpo::value<std::string>(), "Filter table out 'table1,table2'");
 }
 
 void fill_plugin::plugin_initialize(const variables_map& options) {}
@@ -76,7 +76,7 @@ state_history::table_filter_out fill_plugin::get_table_filter(const appbase::var
             auto s = options["fill-table"].as<std::string>();
             boost::erase_all(s, " ");
             std::vector<std::string> split;
-            boost::split(split, s, [](char c) { return c == ':'; });
+            boost::split(split, s, [](char c) { return c == ','; });
             for( const auto& name : split ){
                 //these tables must be created;
                 if( "transaction_trace" == name || "received_block" == name || "fill_status" == name) continue;

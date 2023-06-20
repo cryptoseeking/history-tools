@@ -68,7 +68,7 @@ struct pipeline_t {
 
     void complete() { p.complete(); }
 
-    void flush() { p.flush(); }
+
 };
 
 /// a wrapper class for pqxx::tablewriter to log the write_raw_line()
@@ -106,6 +106,7 @@ struct fill_postgresql_config : connection_config {
     bool                    drop_schema   = false;
     bool                    create_schema = false;
     bool                    enable_trim   = false;
+    bool                    get_table     = true;
 };
 
 struct fill_postgresql_plugin_impl : std::enable_shared_from_this<fill_postgresql_plugin_impl> {
@@ -208,6 +209,11 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
             create_tables();
             config->create_schema = false;
         }
+        if (config->get_table) {
+           tables    = get_tables();
+           config->get_table = false;
+        }
+        ilog("writable tables: ${wtables}",("wtables", tables));
         connection->send(get_status_request_v0{});
     }
 
@@ -215,7 +221,6 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
         work_t t(*sql_connection);
         load_fill_status(t);
         auto       positions = get_positions(t);
-                   tables    = get_tables(t);
         pipeline_t pipeline(t);
         truncate(t, pipeline, head + 1);
         pipeline.complete();
@@ -403,14 +408,18 @@ struct fpg_session : connection_callbacks, std::enable_shared_from_this<fpg_sess
         return result;
     }
 
-    std::set<std::string>  get_tables(work_t& t) {
+    std::set<std::string>  get_tables() {
+        work_t t(*sql_connection);
         std::set<std::string> result;
         std::string schema = config->schema;
         auto  rows = t.exec(
             "SELECT table_name FROM information_schema.tables where table_schema = '" + schema +"' order by table_name");
+        t.commit();
         for (auto row : rows) {
+            if ( config->table_filter.filt_out(row[0].as<std::string>()) ) continue;
             result.emplace(row[0].as<std::string>());
         }
+
         return result;
     }
 
