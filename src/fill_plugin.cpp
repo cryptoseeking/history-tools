@@ -68,9 +68,9 @@ std::vector<state_history::trx_filter> fill_plugin::get_trx_filters(const variab
     }
 }
 
-state_history::table_filter_out fill_plugin::get_table_filter(const appbase::variables_map& options){
+std::set<std::string> fill_plugin::get_table_filter(const appbase::variables_map& options){
     try{
-        state_history::table_filter_out result;
+        std::set<std::string> result;
         if(!options.count("fill-table")){
         }else{
             auto s = options["fill-table"].as<std::string>();
@@ -80,7 +80,7 @@ state_history::table_filter_out fill_plugin::get_table_filter(const appbase::var
             for( const auto& name : split ){
                 //these tables must be created;
                 if( "transaction_trace" == name || "received_block" == name || "fill_status" == name) continue;
-                result.add_table_name(name);
+                result.insert(name);
             }
         }
         return result;
